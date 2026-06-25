@@ -12,19 +12,47 @@ function Login() {
 
   const navigate = useNavigate();
 
+  const getPasswordError = (password) => {
+    if (!password.trim()) {
+      return "Password is required";
+    }
+
+    if (password.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+
+    if (!/[A-Z]/.test(password)) {
+      return "Password must contain at least one uppercase letter";
+    }
+
+    if (!/[a-z]/.test(password)) {
+      return "Password must contain at least one lowercase letter";
+    }
+
+    if (!/[0-9]/.test(password)) {
+      return "Password must contain at least one number";
+    }
+
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      return "Password must contain at least one special character";
+    }
+
+    return "";
+  };
+
   const validateLogin = () => {
     const newErrors = {};
 
     if (!email.trim()) {
       newErrors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      newErrors.email = "Enter a valid email";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      newErrors.email = "Please enter a valid email address";
     }
 
-    if (!password.trim()) {
-      newErrors.password = "Password is required";
-    } else if (password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
+    const passwordError = getPasswordError(password);
+
+    if (passwordError) {
+      newErrors.password = passwordError;
     }
 
     setErrors(newErrors);
@@ -62,6 +90,7 @@ function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
       <form
+        noValidate
         onSubmit={handleLogin}
         className="w-full max-w-sm bg-white p-6 rounded-xl shadow-md"
       >
@@ -75,7 +104,7 @@ function Login() {
           </label>
 
           <input
-            type="email"
+            type="text"
             className={`w-full border rounded-lg px-3 py-2 outline-none ${
               errors.email ? "border-red-500" : "border-gray-300"
             }`}
@@ -102,7 +131,7 @@ function Login() {
             className={`w-full border rounded-lg px-3 py-2 outline-none ${
               errors.password ? "border-red-500" : "border-gray-300"
             }`}
-            placeholder="Enter your password"
+            placeholder="Example: xyz@123"
             value={password}
             onChange={(e) => {
               setPassword(e.target.value);
@@ -113,6 +142,11 @@ function Login() {
           {errors.password && (
             <p className="text-xs text-red-500 mt-1">{errors.password}</p>
           )}
+
+          <p className="text-xs text-gray-400 mt-1">
+            Password must include uppercase, lowercase, number and special
+            character.
+          </p>
         </div>
 
         <button

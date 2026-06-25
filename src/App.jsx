@@ -1,9 +1,10 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 
 import Navbar from "./components/navbar/navBar";
 import WatchlistPage from "./page/watchlistPage";
 import Login from "./Login";
 import Register from "./Register";
+import StockDetailPage from "./Stockpage/StockDetailPage";
 
 function ProtectedLayout() {
   const token = localStorage.getItem("token");
@@ -16,8 +17,8 @@ function ProtectedLayout() {
     <div className="h-screen flex flex-col">
       <Navbar />
 
-      <div className="flex-1 overflow-hidden">
-        <WatchlistPage />
+      <div className="flex-1 overflow-auto">
+        <Outlet />
       </div>
     </div>
   );
@@ -49,7 +50,12 @@ function App() {
         element={token ? <Navigate to="/watchlist" replace /> : <Login />}
       />
 
-      <Route path="/watchlist" element={<ProtectedLayout />} />
+      <Route element={<ProtectedLayout />}>
+        <Route path="/watchlist" element={<WatchlistPage />} />
+        <Route path="/stock/:stockId" element={<StockDetailPage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

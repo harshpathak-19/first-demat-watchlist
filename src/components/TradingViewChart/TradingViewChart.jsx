@@ -1,152 +1,181 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { createChart, AreaSeries } from "lightweight-charts";
 
-function TradingViewChart({
+function TradingViewChart({ 
   symbol = "Stock",
   socketStatus = "idle",
   priceData = [],
+  isUp = true,
 }) {
   const chartContainerRef = useRef(null);
   const chartRef = useRef(null);
   const areaSeriesRef = useRef(null);
+  const resizeObserverRef = useRef(null);
+  const previousSymbolRef = useRef(symbol);
 
-  const [activeRange, setActiveRange] = useState("1D");
+  const lineColor = isUp ? "#0066cc" : "#d9232a";
+  const topColor = isUp ? "rgba(0, 102, 204, 0.12)" : "rgba(217, 35, 42, 0.12)";
+  const bottomColor = "rgba(255,255,255,0.00)";
+
+  const validData = useMemo(() => {
+    if (!Array.isArray(priceData)) return [];
+    const map = new Map();
+    priceData.forEach((item) => {
+      const time = Number(item?.time); 
+      const value = Number(item?.value);
+      if (!time || !value || Number.isNaN(time) || Number.isNaN(value)) return;
+      map.set(time, { time, value });
+    });
+    return Array.from(map.values()).sort((a, b) => a.time - b.time);
+  }, [priceData]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+      areaSeriesRef.current = null;
+    }
+
     const chart = createChart(chartContainerRef.current, {
-      height: 430,
+      width: chartContainerRef.current.clientWidth,
+      height: 240,
       layout: {
         background: { color: "#ffffff" },
-        textColor: "#9ca3af",
+        textColor: "#6b7280",
+        fontSize: 11,
       },
       grid: {
-        vertLines: { visible: false },
-        horzLines: { visible: false },
+        vertLines: { color: "#f3f4f6", style: 1 },
+        horzLines: { color: "#f3f4f6", style: 1 },
       },
       rightPriceScale: {
-        visible: false,
+        visible: true,
         borderVisible: false,
+        textColor: "#9ca3af",
+        scaleMargins: { top: 0.08, bottom: 0.08 },
       },
+      leftPriceScale: { visible: false },
       timeScale: {
         borderVisible: false,
         timeVisible: true,
         secondsVisible: false,
+        fixLeftEdge: true,
+        fixRightEdge: true,
       },
       crosshair: {
+        mode: 1,
         vertLine: {
-          color: "#e5e7eb",
+          color: "#9ca3af",
           width: 1,
-          style: 0,
-          labelVisible: false,
+          style: 2,
+          labelVisible: true,
+          labelBackgroundColor: "#1f2937",
         },
         horzLine: {
-          visible: false,
-          labelVisible: false,
+          color: "#9ca3af",
+          width: 1,
+          style: 2,
+          labelVisible: true,
+          labelBackgroundColor: "#1f2937",
         },
       },
+      handleScroll: true,
+      handleScale: true,
     });
 
     const areaSeries = chart.addSeries(AreaSeries, {
-      lineColor: "#f97316",
-      topColor: "rgba(249, 115, 22, 0.10)",
-      bottomColor: "rgba(249, 115, 22, 0.00)",
-      lineWidth: 3,
-      priceLineVisible: false,
-      lastValueVisible: false,
+      lineColor,
+      topColor,
+      bottomColor,
+      lineWidth: 2,
+      priceLineVisible: true,
+      priceLineColor: lineColor,
+      priceLineWidth: 1,
+      priceLineStyle: 2,
+      lastValueVisible: true,
       crosshairMarkerVisible: true,
-      crosshairMarkerRadius: 5,
+      crosshairMarkerRadius: 4,
       crosshairMarkerBorderColor: "#ffffff",
-      crosshairMarkerBackgroundColor: "#f97316",
+      crosshairMarkerBackgroundColor: lineColor,
+      crosshairMarkerBorderWidth: 2,
     });
 
     chartRef.current = chart;
     areaSeriesRef.current = areaSeries;
 
-    const handleResize = () => {
-      if (!chartContainerRef.current) return;
+    if (validData.length > 0) {
+      areaSeries.setData(validData);
+      chart.timeScale().fitContent();
+    }
 
-      chart.applyOptions({
+    resizeObserverRef.current = new ResizeObserver(() => {
+      if (!chartContainerRef.current || !chartRef.current) return;
+      chartRef.current.applyOptions({
         width: chartContainerRef.current.clientWidth,
       });
-    };
-
-    handleResize();
-    window.addEventListener("resize", handleResize);
+    });
+    resizeObserverRef.current.observe(chartContainerRef.current);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.remove();
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
+      if (chartRef.current) {
+        chartRef.current.remove();
+        chartRef.current = null;
+        areaSeriesRef.current = null;
+      }
     };
-  }, []);
+  }, [symbol, isUp]);
 
   useEffect(() => {
     if (!areaSeriesRef.current || !chartRef.current) return;
-
-    const validData = priceData
-      .filter((item) => item.time && item.value)
-      .map((item) => ({
-        time: item.time,
-        value: Number(item.value),
-      }));
-
     if (validData.length === 0) return;
-
     areaSeriesRef.current.setData(validData);
-    chartRef.current.timeScale().fitContent();
-  }, [priceData]);
+    if (previousSymbolRef.current !== symbol) {
+      chartRef.current.timeScale().fitContent();
+      previousSymbolRef.current = symbol;
+      return;
+    }
+    chartRef.current.timeScale().scrollToRealTime();
+  }, [validData, symbol]);
 
-  const ranges = ["1D", "1W", "1M", "6M", "1Y", "3Y", "5Y", "All"];
+  // ── Fix 3: Volume bars — seeded so they don't re-randomize on every render ──
+  const volumeBars = useMemo(() => {
+    return Array.from({ length: 60 }, (_, i) => ({
+      height: 15 + ((i * 37 + 13) % 85),
+      isGreen: i % 3 !== 0,
+    }));
+  }, []);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900">
-            {symbol} price chart
-          </h2>
+    <div className="w-full">
+      {/* Main Chart */}
+      <div
+        ref={chartContainerRef}
+        className="w-full"
+        style={{ height: "240px" }}
+      />
 
-          <p className="text-xs text-gray-400 mt-1">Live price movement</p>
-        </div>
-
-        <span
-          className={`text-xs px-3 py-1 rounded-full font-medium ${
-            socketStatus === "connected"
-              ? "bg-green-50 text-green-600"
-              : socketStatus === "connecting"
-              ? "bg-yellow-50 text-yellow-600"
-              : socketStatus === "error"
-              ? "bg-red-50 text-red-600"
-              : "bg-gray-100 text-gray-500"
-          }`}
-        >
-          {socketStatus === "connected"
-            ? "Live Connected"
-            : socketStatus === "connecting"
-            ? "Connecting"
-            : socketStatus === "error"
-            ? "Live Error"
-            : "Waiting"}
-        </span>
-      </div>
-
-      <div ref={chartContainerRef} className="w-full h-[430px]" />
-
-      <div className="flex items-center justify-center gap-3 mt-5">
-        {ranges.map((range) => (
-          <button
-            key={range}
-            type="button"
-            onClick={() => setActiveRange(range)}
-            className={`px-4 py-2 rounded-full text-xs font-medium border transition ${
-              activeRange === range
-                ? "border-gray-900 text-gray-900 bg-gray-50"
-                : "border-gray-200 text-gray-500 hover:border-gray-400"
-            }`}
-          >
-            {range}
-          </button>
+      {/* Volume bars — always visible below chart */}
+      <div
+        className="flex items-end gap-px mt-1 w-full"
+        style={{ height: "36px" }}
+      >
+        {volumeBars.map((bar, i) => (
+          <div
+            key={i}
+            className="flex-1 rounded-sm"
+            style={{
+              height: `${bar.height}%`,
+              backgroundColor: bar.isGreen ? "#16a34a" : "#dc2626",
+              opacity: 0.75,
+              minHeight: "3px",
+            }}
+          />
         ))}
       </div>
     </div>

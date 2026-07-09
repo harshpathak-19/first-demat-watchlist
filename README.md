@@ -8,7 +8,15 @@ A React + Vite frontend project for a stock watchlist application.
 
 ## Stock Detail UI
 
-![First Demat Stock Detail UI](./assets/stock-detail-ui.png)
+![First Demat Stock Detail UI](./assets/stock-detail-ui.png) 
+
+## Login UI
+
+![First Demat Login UI](./assets/login-ui.png)
+
+## Register UI
+
+![First Demat Register UI](./assets/register-ui.png)
 
 ## Features
 

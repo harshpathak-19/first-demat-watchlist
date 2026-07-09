@@ -4,7 +4,11 @@ A React + Vite frontend project for a stock watchlist application.
 
 ## Watchlist UI
 
-![First Demat Watchlist UI](./assets/watchlist-ui.png)
+![First Demat Watchlist UI](./assets/watchlist-ui.png) 
+
+## Stock Detail UI
+
+![First Demat Stock Detail UI](./assets/stock-detail-ui.png)
 
 ## Features
 
